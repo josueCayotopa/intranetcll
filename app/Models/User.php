@@ -41,7 +41,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        'foto'
+  
     ];
 
     /**
@@ -92,5 +92,4 @@ class User extends Authenticatable
         return $this;
     }
 
-    
 }

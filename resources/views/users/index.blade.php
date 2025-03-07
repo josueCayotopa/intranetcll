@@ -62,6 +62,10 @@
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Correo
+                        </th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th>
+                            Foto
+
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Teléfono
@@ -101,6 +105,12 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">{{ $usuario->email }}</div>
                         </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">
+                                <img src="{{ Storage::url($usuario->foto) }}" alt="{{ $usuario->nombre_completo }}" class="h-10 w-10 rounded-full object-cover">
+                            </div>
+                        </td>
+
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">{{ $usuario->telefono }}</div>
                         </td>

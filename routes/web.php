@@ -27,6 +27,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/settings', [UserController::class, 'edit'])->name('settings');
     Route::resource('users', UserController::class);
+    Route::get('/archivos', [ArchivoController::class, 'index'])->name('archivos.index');
+    Route::get('/archivos/create', [ArchivoController::class, 'create'])->name('archivos.create');
+    Route::post('/archivos', [ArchivoController::class, 'store'])->name('archivos.store');
+    Route::get('/destroy/{id}', [ArchivoController::class, 'destroy'])->name('archivos.destroy');
+    Route::get('/show/{id}', [ArchivoController::class, 'show'])->name('archivos.show');
+    Route::get('/edit/{id}', [ArchivoController::class, 'edit'])->name('archivos.edit');
 Route::post('/settings', [UserController::class, 'update'])->name('settings.update');
 });
 

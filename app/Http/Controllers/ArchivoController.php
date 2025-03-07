@@ -1,120 +1,79 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Filament\Resources\ArchivoResource\Pages;
 
-use App\Models\Archivo;
-use Illuminate\Http\Request;
+use App\Filament\Resources\ArchivoResource;
+use Filament\Actions;
+use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
-class ArchivoController extends Controller
+class CreateArchivo extends CreateRecord
 {
-    //
-    public function index()
+    protected static string $resource = ArchivoResource::class;
+
+    protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $archivos = Archivo::all();
-        return view('archivos.index', compact('archivos'));
+        // Eliminamos el campo archivo_pdf para que no intente guardarlo en la base de datos
+        if (isset($data['archivo_pdf'])) {
+            unset($data['archivo_pdf']);
+        }
+        
+        return $data;
     }
 
-    public function create()
+    protected function afterCreate(): void
     {
-        return view('archivos.create');
-    }
-
-    public function store(Request $request)
-    {
-        $request->validate([
-            'nombre' => 'required',
-            'archivo_pdf' => 'required|mimes:pdf|max:10240', // max 10MB
-        ]);
-    
-        if ($request->hasFile('archivo_pdf')) {
-            try {
-                $file = $request->file('archivo_pdf');
+        // Obtenemos el ID del registro recién creado
+        $record = $this->record;
+        
+        try {
+            // Obtenemos el archivo subido
+            $archivoPath = $this->data['archivo_pdf'] ?? null;
+        
+            // Depuración para ver qué tipo de dato es $archivoPath
+            Log::info('Tipo de archivoPath: ' . gettype($archivoPath));
+            Log::info('Valor de archivoPath: ', is_array($archivoPath) ? $archivoPath : [$archivoPath]);
+        
+            if ($archivoPath) {
+                // Si es un array, tomamos el primer elemento
+                if (is_array($archivoPath)) {
+                    $archivoPath = reset($archivoPath); // Usa reset() en lugar de [0] para mayor seguridad
+                }
+            
+                if (!empty($archivoPath) && is_string($archivoPath)) {
+                    // Construimos la ruta completa del archivo
+                    $filePath = Storage::disk('local')->path('tmp/' . $archivoPath);
                 
-                // Crear un nuevo registro de archivo
-                $archivo = new Archivo();
-                $archivo->nombre = $request->nombre;
-                $archivo->tipo_archivo = $file->getClientMimeType();
-                $archivo->tamano = $file->getSize();
-                
-                // Guardar primero sin el contenido
-                $archivo->save();
-                
-                // Ahora actualizar el contenido usando una consulta directa
-                $contenido = base64_encode(file_get_contents($file->getRealPath()));
-                
-                // Usar una consulta SQL directa para actualizar solo el campo contenido
-                DB::statement("
-                    UPDATE archivos 
-                    SET contenido = CONVERT(VARBINARY(MAX), ?)
-                    WHERE id = ?
-                ", [$contenido, $archivo->id]);
-    
-                return redirect()->route('archivos.index')
-                    ->with('success', 'Archivo PDF subido correctamente.');
-            } catch (\Exception $e) {
-                return back()->with('error', 'Error al subir el archivo: ' . $e->getMessage());
+                    if (file_exists($filePath)) {
+                        // Leemos el contenido del archivo y lo codificamos en base64
+                        $contenido = base64_encode(file_get_contents($filePath));
+                    
+                        // Actualizamos directamente con una consulta SQL que usa CONVERT
+                        DB::statement("
+                            UPDATE archivos 
+                            SET contenido = CONVERT(VARBINARY(MAX), ?)
+                            WHERE id = ?
+                        ", [$contenido, $record->id]);
+                    
+                        // Limpiamos el archivo temporal
+                        Storage::disk('local')->delete('tmp/' . $archivoPath);
+                    
+                        Log::info('Archivo guardado correctamente con ID: ' . $record->id);
+                    } else {
+                        Log::error('El archivo no existe en la ruta: ' . $filePath);
+                    }
+                } else {
+                    Log::error('La ruta del archivo no es válida');
+                }
+            } else {
+                Log::info('No se proporcionó ningún archivo');
             }
+        } catch (\Exception $e) {
+            Log::error('Error en afterCreate: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
         }
-        
-        return back()->with('error', 'No se pudo subir el archivo.');
     }
-    public function download(Archivo $archivo)
-{
-    // Obtener el contenido directamente de la base de datos
-    $contenidoBase64 = DB::table('archivos')
-        ->where('id', $archivo->id)
-        ->value('contenido');
-    
-    // Decodificar el contenido
-    $contenido = base64_decode($contenidoBase64);
-    
-    $headers = [
-        'Content-Type' => $archivo->tipo_archivo,
-        'Content-Disposition' => 'attachment; filename="' . $archivo->nombre . '.pdf"',
-    ];
-
-    return response($contenido, 200, $headers);
 }
-    public function show(Archivo $archivo)
-    {
-        return view('archivos.show', compact('archivo'));
-    }
 
-    public function edit(Archivo $archivo)
-    {
-        return view('archivos.edit', compact('archivo'));
-    }
-
-    public function update(Request $request, Archivo $archivo)
-    {
-        $request->validate([
-            'nombre' => 'required',
-            'archivo_pdf' => 'nullable|mimes:pdf|max:10240', // max 10MB
-        ]);
-
-        $archivo->nombre = $request->nombre;
-        
-        if ($request->hasFile('archivo_pdf')) {
-            $file = $request->file('archivo_pdf');
-            $archivo->contenido = file_get_contents($file->getRealPath());
-            $archivo->tipo_archivo = $file->getClientMimeType();
-            $archivo->tamano = $file->getSize();
-        }
-        
-        $archivo->save();
-        
-        return redirect()->route('archivos.index')
-            ->with('success', 'Archivo actualizado correctamente');
-    }
-
-    public function destroy(Archivo $archivo)
-    {
-        $archivo->delete();
-        return redirect()->route('archivos.index')
-            ->with('success', 'Archivo eliminado correctamente');
-    }
-    
-   
-
-}
